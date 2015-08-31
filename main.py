@@ -1,23 +1,43 @@
 import os
 import subprocess
 import sys
+import shutil
+import datetime as dt
 from pathlib import Path
+
+import pysrt
+
 try:
     from PyQt4.QtCore import __init__ as QtCore  # stupid PyCharm
     from PyQt4.QtCore.__init__ import pyqtSlot
     from PyQt4.QtGui import __init__ as QtGui  # stupid PyCharm
     from PyQt4.QtGui.__init__ import QFileDialog, QApplication, QWidget, QMainWindow, QLineEdit, \
-        QDesktopWidget, QHBoxLayout, QVBoxLayout, QPushButton
+        QDesktopWidget, QHBoxLayout, QVBoxLayout, QPushButton, QDialog
 except ImportError:
     from PyQt4.QtCore import pyqtSlot
     from PyQt4 import QtGui, QtCore
     from PyQt4.QtGui import QFileDialog, QApplication, QWidget, QMainWindow, QLineEdit, \
-        QDesktopWidget, QHBoxLayout, QVBoxLayout, QPushButton
+        QDesktopWidget, QHBoxLayout, QVBoxLayout, QPushButton, QDialog
 
 
 __author__ = 'Edward Oubrayrie'
 
 lastDir = os.path.expandvars('$HOME')
+
+
+def duration(start: dt.time, stop: dt.time) -> dt.timedelta:
+    return dt.datetime.combine(dt.date.min, stop) - dt.datetime.combine(dt.date.min, start)
+
+
+def timedelta_str(d: dt.timedelta) -> str:
+    assert(d.days == 0)
+    hours, remainder = divmod(d.seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return '%s:%s:%s' % (hours, minutes, seconds)
+
+
+def duration_str(h_m_s_start: [int, int, int], h_m_s_stop: [int, int, int]):
+    return timedelta_str(duration(dt.time(*h_m_s_start), dt.time(*h_m_s_stop)))
 
 
 class Picker(QWidget):
@@ -87,11 +107,20 @@ class MinuteSecond(QLineEdit):
 
     def get_time(self):
         t = self.text()
-        if len(t) < 2:  # seconds
-            return self
-        if ":" not in self:
-            return t[:-2] + ":" + t[-2:]
-        return self
+        if len(t) > 2 and ':' not in t:
+                t = t[:-2] + ':' + t[-2:]
+        if len(t) > 5 and ':' not in t[:-5]:
+            t = t[:-5] + ':' + t[-5:]
+        return t
+
+    def get_h_m_s(self):
+        t = self.get_time()
+        if len(t) < 8:
+            t = '00:00:00'[:8-len(t)] + t
+        h = int(t[0:2])
+        m = int(t[3:5])
+        s = int(t[6:8])
+        return h, m, s
 
 
 
@@ -145,23 +174,44 @@ class Main(QWidget):
 
     def do_it(self):
         vid_in = self.video_pick.get_text()
-        vid_out = self.save_pick.get_text() + os.path.splitext(vid_in)
+        vid_out = self.save_pick.get_text() + os.path.splitext(vid_in)[1]
         ss = self.start.get_time()
-        st = self.stop.get_time()
-        ffmpeg = 'ffmpeg' or "..."
-        command = [ffmpeg, vid_in, '-out', vid_out, '-ss', ss, '-st', st]
-        "ffmpeg -i input.avi -vcodec copy -acodec copy -ss 00:00:00 -t 00:05:00 output1.avi"
-        'avconv -i "/media/eoubrayrie/STORENGO/some movie title.mp4" -vcodec copy -acodec copy -ss 00:00:00 -t 00:05:16 output1.avi'
+        d = duration_str(self.start.get_h_m_s(), self.stop.get_h_m_s())
+        ffmpeg = shutil.which('ffmpeg') or shutil.which('avconv')
+        command = [ffmpeg, '-no-stdin',
+                   '-i', vid_in,
+                   '-vcodec', 'copy',
+                   '-acodec', 'copy',
+                   '-ss', ss,
+                   '-t', d,
+                   vid_out]
+        # "ffmpeg -i input.avi -vcodec copy -acodec copy -ss 00:00:00 -t 00:05:00 output1.avi"
+        # 'avconv -i "/media/eoubrayrie/STORENGO/v.mp4" -vcodec copy -acodec copy -ss 00:00:00 -t 00:05:16 output1.avi'
         print(command)
-        # subprocess.Popen(command)
-            self.cut_subtitle(sbt_in, ss, st)
+        p = subprocess.Popen(command)
+        o = p.stdout().read()
+        e = p.stderr.read()
+        if e:
+            err_dialog = QDialog(self, o + '\n\n' + e)
+            err_dialog.exec()
+        else:
+            self.cut_subtitle()
+            opn = shutil.which('xdg-open')
+            if opn:
+                subprocess.Popen(opn, vid_out)
+
 
     def cut_subtitle(self):
         sbt_in = self.subtitle_pick.get_text()
         if os.path.isfile(sbt_in):
-            sbt_out = self.save_pick.get_text() + os.path.splitext(sbt_in)
-            ss = self.start.get_time()
-            st = self.stop.get_time()
+            sbt_out = self.save_pick.get_text() + os.path.splitext(sbt_in)[1]
+            h1, m1, s1 = self.start.get_h_m_s()
+            h2, m2, s2 = self.stop.get_h_m_s()
+            subs = pysrt.open(sbt_in)  # , encoding='iso-8859-1')
+            part = subs.slice(starts_after={'hours': h1, 'minutes': m1, 'seconds': s1},
+                              ends_before={'hours': h2, 'minutes': m2, 'seconds': s2})
+            part.shift(seconds=-2)
+            part.save(path=sbt_out)
 
 if __name__ == '__main__':
 
