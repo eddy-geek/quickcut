@@ -23,6 +23,8 @@ except ImportError:
 __author__ = 'Edward Oubrayrie'
 
 lastDir = os.path.expandvars('$HOME')
+# or, better, save & take it from config file:
+# file_path =  os.path.join(QDir.home().absolutePath(), ".application_name")
 
 
 def duration(start: dt.time, stop: dt.time) -> dt.timedelta:
@@ -40,7 +42,7 @@ def duration_str(h_m_s_start: [int, int, int], h_m_s_stop: [int, int, int]):
     return timedelta_str(duration(dt.time(*h_m_s_start), dt.time(*h_m_s_stop)))
 
 
-class Picker(QWidget):
+class Picker(QWidget):  # TOdO composition instead of inheritance
 
     def __init__(self, title, label='Select', save=False, filters=None):
         super(Picker, self).__init__()
@@ -49,17 +51,20 @@ class Picker(QWidget):
         self.filters = filters
 
         hbox = QtGui.QHBoxLayout()
-        self.text = QLineEdit(self)
-        self.text.setMinimumWidth(300)
-        hbox.addWidget(self.text)
+        self.wtext = QLineEdit(self)
+        self.wtext.setMinimumWidth(300)
+        hbox.addWidget(self.wtext)
+        # Expose some methods
+        self.textChanged = self.wtext.textChanged
+        self.set_text = self.wtext.setText
 
         # self.icon = QtGui.QIcon.fromTheme("places/user-folders")
-        self.icon = self.style().standardIcon(QtGui.QStyle.SP_DialogOpenButton)
+        icon = self.style().standardIcon(QtGui.QStyle.SP_DialogOpenButton)
         # self.icon.addPixmap(QtGui.QPixmap(":/icons/folder_16x16.gif"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        self.btn = QPushButton(self.icon, label, self)
+        self.wbtn = QPushButton(icon, label, self)
 
-        self.btn.clicked.connect(self.pick)
-        hbox.addWidget(self.btn)
+        self.wbtn.clicked.connect(self.pick)
+        hbox.addWidget(self.wbtn)
         self.setLayout(hbox)
 
     @pyqtSlot()
@@ -74,10 +79,10 @@ class Picker(QWidget):
         if not dlg.exec():
             return
 
-        self.text.setText(dlg.selectedFiles()[0])
+        self.wtext.setText(dlg.selectedFiles()[0])
 
     def get_text(self):
-        return self.text.text()
+        return self.wtext.text()
 
 
 class MinuteSecond(QLineEdit):
@@ -86,7 +91,7 @@ class MinuteSecond(QLineEdit):
     def __init__(self, *args, **kw):
         super(MinuteSecond, self).__init__(*args)
 
-        regexp = QtCore.QRegExp('^[0-9][0-9]:?[0-9][0-9]$')
+        regexp = QtCore.QRegExp('^(([0-9][0-9]:?)?[0-5][0-9]:?)?[0-5][0-9]$')
         validator = QtGui.QRegExpValidator(regexp)
         self.setValidator(validator)
         self.textChanged.connect(self.check_state)
@@ -123,8 +128,6 @@ class MinuteSecond(QLineEdit):
         return h, m, s
 
 
-
-
 class Main(QWidget):
 
     def __init__(self):
@@ -142,6 +145,10 @@ class Main(QWidget):
         self.initUI()
 
     def initUI(self):
+
+        self.video_pick.textChanged.connect(self.video_changed)
+
+        # times
 
         times = QtGui.QHBoxLayout()
         times.addWidget(self.start)
@@ -162,15 +169,25 @@ class Main(QWidget):
 
         # Stitch it
 
-        vbox = QtGui.QVBoxLayout()
-        vbox.addWidget(self.video_pick)
-        vbox.addWidget(self.subtitle_pick)
-        vbox.addLayout(times)
-        vbox.addWidget(self.save_pick)
-        vbox.addStretch(1)
-        vbox.addLayout(hbox)
+        # vbox = QtGui.QVBoxLayout()
+        grid = QtGui.QGridLayout()
+        grid.setSpacing(10)
 
-        self.setLayout(vbox)
+        grid.addWidget(QtGui.QLabel('Video:'), 1, 0)
+        grid.addWidget(self.video_pick, 1, 1)
+        grid.addWidget(QtGui.QLabel('Subtitles:'), 2, 0)
+        grid.addWidget(self.subtitle_pick, 2, 1)
+        grid.addWidget(QtGui.QLabel('Start / Stop (HHMMSS):'), 3, 0)
+        grid.addLayout(times, 3, 1)
+        grid.addWidget(QtGui.QLabel('Output:'), 4, 0)
+        grid.addWidget(self.save_pick, 4, 1)
+        # grid.addStretch(1)
+        grid.addLayout(hbox, 5, 1)
+
+        self.setLayout(grid)
+
+    def video_changed(self, *args, **kw):
+        self.subtitle_pick.set_text(str(Path(self.video_pick.get_text()).with_suffix('.srt')))
 
     def do_it(self):
         vid_in = self.video_pick.get_text()
@@ -199,7 +216,6 @@ class Main(QWidget):
             opn = shutil.which('xdg-open')
             if opn:
                 subprocess.Popen(opn, vid_out)
-
 
     def cut_subtitle(self):
         sbt_in = self.subtitle_pick.get_text()
