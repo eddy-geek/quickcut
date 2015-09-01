@@ -9,7 +9,7 @@ import pysrt
 
 from PyQt5 import QtGui, QtCore, QtWidgets
 from PyQt5.QtCore import pyqtSlot
-from PyQt5.QtWidgets import QLabel, QLineEdit, QPushButton, QDialog, QFileDialog
+from PyQt5.QtWidgets import QLabel, QLineEdit, QPushButton, QFileDialog, QMessageBox
 
 __author__ = 'Edward Oubrayrie'
 
@@ -26,7 +26,7 @@ def timedelta_str(d: dt.timedelta) -> str:
     assert (d.days == 0)
     hours, remainder = divmod(d.seconds, 3600)
     minutes, seconds = divmod(remainder, 60)
-    return '%s:%s:%s' % (hours, minutes, seconds)
+    return '%02d:%02d:%02d' % (hours, minutes, seconds)
 
 
 def duration_str(h_m_s_start: [int, int, int], h_m_s_stop: [int, int, int]):
@@ -82,7 +82,7 @@ class MinuteSecond(QLineEdit):
     def __init__(self, *args, **kw):
         super(MinuteSecond, self).__init__(*args)
 
-        regexp = QtCore.QRegExp('^(([0-9][0-9]:?)?[0-5][0-9]:?)?[0-5][0-9]$')
+        regexp = QtCore.QRegExp('^(([0-9]?[0-9]:?)?[0-5][0-9]:?)?[0-5][0-9]$')
         validator = QtGui.QRegExpValidator(regexp)
         self.setValidator(validator)
         self.textChanged.connect(self.check_state)
@@ -124,8 +124,8 @@ class Main(QtWidgets.QWidget):
         super(Main, self).__init__()
 
         # File Picker
-        self.video_pick = Picker('Open video', filters="Videos (*.mp4 *.mpg *.avi);;All files (*.*)")
-        self.subtitle_pick = Picker('Open subtitle')
+        self.video_pick = Picker('Open video', filters='Videos (*.mp4 *.mpg *.avi);;All files (*.*)')
+        self.subtitle_pick = Picker('Open subtitle', filters='SubRip Subtitles (*.srt);;All files (*.*)')
         self.save_pick = Picker('Save as', save=True)
 
         # Times
@@ -147,9 +147,9 @@ class Main(QtWidgets.QWidget):
 
         # Buttons
 
-        ok_btn = QPushButton("Do it !")
+        ok_btn = QPushButton('Do it !')
         ok_btn.clicked.connect(self.do_it)
-        quit_btn = QPushButton("Quit")
+        quit_btn = QPushButton('Quit')
         quit_btn.clicked.connect(exit)
 
         hbox = QtWidgets.QHBoxLayout()
@@ -184,28 +184,53 @@ class Main(QtWidgets.QWidget):
         vid_out = self.save_pick.get_text() + os.path.splitext(vid_in)[1]
         ss = self.start.get_time()
         d = duration_str(self.start.get_h_m_s(), self.stop.get_h_m_s())
+
+        # input validation:
+        if os.path.isfile(vid_out):
+            # icon = self.style().standardIcon(QtWidgets.QStyle.SP_MessageBoxWarning)
+            # QMessageBox(icon, '{} already exists', 'Do you want to replace it ?',
+            #             buttons=QMessageBox.Yes, parent=self)  # TODO Ask instead
+
+            # static QMessageBox::StandardButton warning(QWidget *parent, const QString &title, const QString &text,
+            #  QFlags<QMessageBox::StandardButton> buttons = QMessageBox::Ok,
+            #  QMessageBox::StandardButton defaultButton = QMessageBox::NoButton) /ReleaseGIL/;
+
+            ret = QMessageBox.warning(self, 'File exists',
+                                      '{} already exists\n\nDo you want to replace it ?'.format(vid_out),
+                                      defaultButton=QMessageBox.Cancel)
+            if ret == QMessageBox.Cancel:
+                return
+            try:
+                os.remove(vid_out)
+            except OSError as e:
+                QMessageBox.critical(self, 'Wrong file',
+                                     'Cannot write {}, system returned {}.\n\n'
+                                     'Change output file name and retry,'.format(vid_out, str(e)))
+                return
+
         ffmpeg = shutil.which('ffmpeg') or shutil.which('avconv')
-        command = [ffmpeg, '-no-stdin',
+        command = [ffmpeg, '-nostdin', '-noaccurate_seek',
+                   '-ss', ss,
+                   '-t', d,
                    '-i', vid_in,
                    '-vcodec', 'copy',
                    '-acodec', 'copy',
-                   '-ss', ss,
-                   '-t', d,
                    vid_out]
         # "ffmpeg -i input.avi -vcodec copy -acodec copy -ss 00:00:00 -t 00:05:00 output1.avi"
         # 'avconv -i "/media/eoubrayrie/STORENGO/v.mp4" -vcodec copy -acodec copy -ss 00:00:00 -t 00:05:16 output1.avi'
         print(command)
-        p = subprocess.Popen(command)
-        o = p.stdout().read()
-        e = p.stderr.read()
-        if e:
-            err_dialog = QDialog(self, o + '\n\n' + e)
+        p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  #, stderr=subprocess.STDOUT)
+        stdout, stderr = p.communicate()
+        ret = p.poll()
+        if ret != 0:
+            err_dialog = QMessageBox.critical(self, 'Error during video cut',
+                                              "Error {} occured: \n\n{}\n\n{}\n\n{}".format(ret, str(stdout), '*'*99, str(stderr)))
             err_dialog.exec()
         else:
             self.cut_subtitle()
             opn = shutil.which('xdg-open')
             if opn:
-                subprocess.Popen(opn, vid_out)
+                subprocess.Popen([opn, vid_out])
 
     def cut_subtitle(self):
         sbt_in = self.subtitle_pick.get_text()
