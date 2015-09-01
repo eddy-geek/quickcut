@@ -7,18 +7,9 @@ from pathlib import Path
 
 import pysrt
 
-try:
-    from PyQt4.QtCore import __init__ as QtCore  # stupid PyCharm
-    from PyQt4.QtCore.__init__ import pyqtSlot
-    from PyQt4.QtGui import __init__ as QtGui  # stupid PyCharm
-    from PyQt4.QtGui.__init__ import QFileDialog, QApplication, QWidget, QMainWindow, QLineEdit, \
-        QDesktopWidget, QHBoxLayout, QVBoxLayout, QPushButton, QDialog
-except ImportError:
-    from PyQt4.QtCore import pyqtSlot
-    from PyQt4 import QtGui, QtCore
-    from PyQt4.QtGui import QFileDialog, QApplication, QWidget, QMainWindow, QLineEdit, \
-        QDesktopWidget, QHBoxLayout, QVBoxLayout, QPushButton, QDialog
-
+from PyQt5 import QtGui, QtCore, QtWidgets
+from PyQt5.QtCore import pyqtSlot
+from PyQt5.QtWidgets import QLabel, QLineEdit, QPushButton, QDialog, QFileDialog
 
 __author__ = 'Edward Oubrayrie'
 
@@ -32,7 +23,7 @@ def duration(start: dt.time, stop: dt.time) -> dt.timedelta:
 
 
 def timedelta_str(d: dt.timedelta) -> str:
-    assert(d.days == 0)
+    assert (d.days == 0)
     hours, remainder = divmod(d.seconds, 3600)
     minutes, seconds = divmod(remainder, 60)
     return '%s:%s:%s' % (hours, minutes, seconds)
@@ -42,7 +33,7 @@ def duration_str(h_m_s_start: [int, int, int], h_m_s_stop: [int, int, int]):
     return timedelta_str(duration(dt.time(*h_m_s_start), dt.time(*h_m_s_stop)))
 
 
-class Picker(QWidget):  # TOdO composition instead of inheritance
+class Picker(QtWidgets.QWidget):  # TOdO composition instead of inheritance
 
     def __init__(self, title, label='Select', save=False, filters=None):
         super(Picker, self).__init__()
@@ -50,7 +41,7 @@ class Picker(QWidget):  # TOdO composition instead of inheritance
         self.title = title
         self.filters = filters
 
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         self.wtext = QLineEdit(self)
         self.wtext.setMinimumWidth(300)
         hbox.addWidget(self.wtext)
@@ -58,9 +49,9 @@ class Picker(QWidget):  # TOdO composition instead of inheritance
         self.textChanged = self.wtext.textChanged
         self.set_text = self.wtext.setText
 
-        # self.icon = QtGui.QIcon.fromTheme("places/user-folders")
-        icon = self.style().standardIcon(QtGui.QStyle.SP_DialogOpenButton)
-        # self.icon.addPixmap(QtGui.QPixmap(":/icons/folder_16x16.gif"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        # self.icon = QtWidgets.QIcon.fromTheme("places/user-folders")
+        icon = self.style().standardIcon(QtWidgets.QStyle.SP_DialogOpenButton)
+        # self.icon.addPixmap(QPixmap(":/icons/folder_16x16.gif"), QtWidgets.QIcon.Normal, QtWidgets.QIcon.Off)
         self.wbtn = QPushButton(icon, label, self)
 
         self.wbtn.clicked.connect(self.pick)
@@ -74,8 +65,8 @@ class Picker(QWidget):  # TOdO composition instead of inheritance
             dlg.setDefaultSuffix(self._extension)
             dlg.setAcceptMode(QFileDialog.AcceptSave)
         else:
-            dlg.setAcceptMode(QtGui.QFileDialog.AcceptOpen)
-            dlg.setFileMode(QtGui.QFileDialog.ExistingFile)
+            dlg.setAcceptMode(QFileDialog.AcceptOpen)
+            dlg.setFileMode(QFileDialog.ExistingFile)
         if not dlg.exec():
             return
 
@@ -113,7 +104,7 @@ class MinuteSecond(QLineEdit):
     def get_time(self):
         t = self.text()
         if len(t) > 2 and ':' not in t:
-                t = t[:-2] + ':' + t[-2:]
+            t = t[:-2] + ':' + t[-2:]
         if len(t) > 5 and ':' not in t[:-5]:
             t = t[:-5] + ':' + t[-5:]
         return t
@@ -121,15 +112,14 @@ class MinuteSecond(QLineEdit):
     def get_h_m_s(self):
         t = self.get_time()
         if len(t) < 8:
-            t = '00:00:00'[:8-len(t)] + t
+            t = '00:00:00'[:8 - len(t)] + t
         h = int(t[0:2])
         m = int(t[3:5])
         s = int(t[6:8])
         return h, m, s
 
 
-class Main(QWidget):
-
+class Main(QtWidgets.QWidget):
     def __init__(self):
         super(Main, self).__init__()
 
@@ -150,36 +140,36 @@ class Main(QWidget):
 
         # times
 
-        times = QtGui.QHBoxLayout()
+        times = QtWidgets.QHBoxLayout()
         times.addWidget(self.start)
         times.addWidget(self.stop)
         times.addStretch(1)
 
         # Buttons
 
-        ok_btn = QtGui.QPushButton("Do it !")
+        ok_btn = QPushButton("Do it !")
         ok_btn.clicked.connect(self.do_it)
-        quit_btn = QtGui.QPushButton("Quit")
+        quit_btn = QPushButton("Quit")
         quit_btn.clicked.connect(exit)
 
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         hbox.addStretch(1)
         hbox.addWidget(ok_btn)
         hbox.addWidget(quit_btn)
 
         # Stitch it
 
-        # vbox = QtGui.QVBoxLayout()
-        grid = QtGui.QGridLayout()
+        # vbox = QtWidgets.QVBoxLayout()
+        grid = QtWidgets.QGridLayout()
         grid.setSpacing(10)
 
-        grid.addWidget(QtGui.QLabel('Video:'), 1, 0)
+        grid.addWidget(QLabel('Video:'), 1, 0)
         grid.addWidget(self.video_pick, 1, 1)
-        grid.addWidget(QtGui.QLabel('Subtitles:'), 2, 0)
+        grid.addWidget(QLabel('Subtitles:'), 2, 0)
         grid.addWidget(self.subtitle_pick, 2, 1)
-        grid.addWidget(QtGui.QLabel('Start / Stop (HHMMSS):'), 3, 0)
+        grid.addWidget(QLabel('Start / Stop (HHMMSS):'), 3, 0)
         grid.addLayout(times, 3, 1)
-        grid.addWidget(QtGui.QLabel('Output:'), 4, 0)
+        grid.addWidget(QLabel('Output:'), 4, 0)
         grid.addWidget(self.save_pick, 4, 1)
         # grid.addStretch(1)
         grid.addLayout(hbox, 5, 1)
@@ -229,9 +219,9 @@ class Main(QWidget):
             part.shift(seconds=-2)
             part.save(path=sbt_out)
 
-if __name__ == '__main__':
 
-    app = QApplication(sys.argv)
+if __name__ == '__main__':
+    app = QtWidgets.QApplication(sys.argv)
 
     w = Main()
 
@@ -249,40 +239,3 @@ if __name__ == '__main__':
 
     sys.exit(app.exec())
 
-
-# EXAMPLE
-
-class Example(QtGui.QWidget):
-
-    def __init__(self):
-        super(Example, self).__init__()
-
-        self.initUI()
-
-    def initUI(self):
-
-        title = QtGui.QLabel('Title')
-        author = QtGui.QLabel('Author')
-        review = QtGui.QLabel('Review')
-
-        titleEdit = QtGui.QLineEdit()
-        authorEdit = QtGui.QLineEdit()
-        reviewEdit = QtGui.QTextEdit()
-
-        grid = QtGui.QGridLayout()
-        grid.setSpacing(10)
-
-        grid.addWidget(title, 1, 0)
-        grid.addWidget(titleEdit, 1, 1)
-
-        grid.addWidget(author, 2, 0)
-        grid.addWidget(authorEdit, 2, 1)
-
-        grid.addWidget(review, 3, 0)
-        grid.addWidget(reviewEdit, 3, 1, 5, 1)
-
-        self.setLayout(grid)
-
-        self.setGeometry(300, 300, 350, 300)
-        self.setWindowTitle('Review')
-        self.show()
