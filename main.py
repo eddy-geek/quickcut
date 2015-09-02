@@ -120,8 +120,8 @@ class Main(QtWidgets.QWidget):
             #             buttons=QMessageBox.Yes, parent=self)
 
             msg = '{} already exists\n\nDo you want to replace it ?'.format(vid_out)
-            ret = QMessageBox.warning(self, 'File exists', msg, defaultButton=QMessageBox.Cancel)
-            if ret == QMessageBox.Cancel:
+            video_ret = QMessageBox.warning(self, 'File exists', msg, defaultButton=QMessageBox.Cancel)
+            if video_ret == QMessageBox.Cancel:
                 return
             try:
                 os.remove(vid_out)
@@ -131,31 +131,41 @@ class Main(QtWidgets.QWidget):
                 QMessageBox.critical(self, 'Wrong file', msg)
                 return
 
-        ffmpeg = shutil.which('ffmpeg') or shutil.which('avconv')
-        command = [ffmpeg, '-nostdin', '-noaccurate_seek',
-                   '-ss', ss,
-                   '-t', d,
-                   '-i', vid_in,
-                   '-vcodec', 'copy',
-                   '-acodec', 'copy',
-                   vid_out]
-        # "ffmpeg -i input.avi -vcodec copy -acodec copy -ss 00:00:00 -t 00:05:00 output1.avi"
-        # 'avconv -i "/media/eoubrayrie/STORENGO/v.mp4" -vcodec copy -acodec copy -ss 00:00:00 -t 00:05:16 output1.avi'
-        print(command)
-        p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  #, stderr=subprocess.STDOUT)
-        stdout, stderr = p.communicate()
-        ret = p.poll()
-        if ret != 0:
-            msg = "Error {:d} occured. Check video file or see details.".format(ret)
-            dmsg = "\n\n{}\n\n{}\n\n{}".format(stdout.decode(), '_'*30, stderr.decode())
-            err_dialog = BiggerMessageBox(QMessageBox.Critical, 'Error during video cut', msg, parent=self)
-            err_dialog.setDetailedText(dmsg)
-            err_dialog.exec()
-        else:
-            self.cut_subtitle()
+        video_ret = 0
+        if os.path.isfile(vid_in):
+            ffmpeg = shutil.which('ffmpeg') or shutil.which('avconv')
+            command = [ffmpeg, '-nostdin', '-noaccurate_seek',
+                       '-ss', ss,
+                       '-t', d,
+                       '-i', vid_in,
+                       '-vcodec', 'copy',
+                       '-acodec', 'copy',
+                       vid_out]
+            # "ffmpeg -i input.avi -vcodec copy -acodec copy -ss 00:00:00 -t 00:05:00 output1.avi"
+            # 'avconv -i "/media/eoubrayrie/STORENGO/v.mp4" -vcodec copy -acodec copy -ss 00:00:00 -t 00:05:16 output1.avi'
+            print(command)  # FIXME output is seemingly random start/duration....
+            p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  #, stderr=subprocess.STDOUT)
+            stdout, stderr = p.communicate()
+            video_ret = p.poll()
+            if video_ret != 0:
+                msg = "Error {:d} occured. Check video file or see details.".format(video_ret)
+                dmsg = "\n\n{}\n\n{}\n\n{}".format(stdout.decode(), '_'*30, stderr.decode())
+                err_dialog = BiggerMessageBox(QMessageBox.Critical, 'Error during video cut', msg, parent=self)
+                err_dialog.setDetailedText(dmsg)
+                err_dialog.exec()
+
+        if video_ret == 0:
+            sbt_out = self.cut_subtitle()
             opn = shutil.which('xdg-open')
+            if vid_out and os.path.isfile(vid_out):
+                f = vid_out
+            elif sbt_out and os.path.isfile(sbt_out):
+                f = sbt_out
+            else:
+                return  # TODO Warning
             if opn:
-                subprocess.Popen([opn, vid_out])
+                subprocess.Popen([opn, f])
+
 
     def cut_subtitle(self):
         sbt_in = self.subtitle_pick.get_text()
@@ -163,11 +173,15 @@ class Main(QtWidgets.QWidget):
             sbt_out = self.save_pick.get_text() + os.path.splitext(sbt_in)[1]
             h1, m1, s1 = self.start.get_h_m_s()
             h2, m2, s2 = self.stop.get_h_m_s()
-            subs = pysrt.open(sbt_in)  # , encoding='iso-8859-1')
+            subs = pysrt.open(sbt_in, error_handling=pysrt.ERROR_LOG)  # , encoding='iso-8859-1')
+            print('Decoded {} with {} items'.format(sbt_out, len(subs)))
             part = subs.slice(starts_after={'hours': h1, 'minutes': m1, 'seconds': s1},
                               ends_before={'hours': h2, 'minutes': m2, 'seconds': s2})
-            part.shift(seconds=-2)
+            print('Sliced {} items'.format(len(part)))
+            part.shift(seconds=-duration(dt.time(h1, m1, s1), dt.time(h2, m2, s2)).total_seconds())
             part.save(path=sbt_out)
+            print('Successfully written', sbt_out)
+            return sbt_out
 
 
 if __name__ == '__main__':

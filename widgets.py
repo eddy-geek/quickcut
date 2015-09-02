@@ -13,13 +13,30 @@ lastDir = os.path.expandvars('$HOME')
 
 
 class FileValidator(QValidator):
-    def __init__(self, *args):
+    def __init__(self, *args, is_file=True, is_writable=False):
         super().__init__(*args)
+        self.is_file = is_file
+        self.is_writable = is_writable
 
     def validate(self, s, pos):
-        if os.path.isfile(s):
-            return QValidator.Acceptable, s, pos
-        return QValidator.Intermediate, s, pos
+        if not s:
+            return QValidator.Intermediate, s, pos
+
+        news = os.path.abspath(s)
+        if news != s:
+            pos = pos + len(news) - len(s)
+            s = news
+
+        if self.is_file and not os.path.isfile(s):
+            return QValidator.Intermediate, s, pos
+
+        if self.is_writable and not (
+                (not os.path.isfile(s) or os.access(s, os.W_OK))
+                and os.access(os.path.dirname(s), os.W_OK)
+                and not os.path.isdir(s)):
+            return QValidator.Intermediate, s, pos
+
+        return QValidator.Acceptable, s, pos
 
     def fixup(self, s):
         pass
@@ -34,10 +51,10 @@ class Picker(QtWidgets.QWidget):  # TODO composition instead of inheritance
         self.filters = filters
 
         hbox = QtWidgets.QHBoxLayout()
-        if exists:
-            self.wtext = ValidatedLineEdit(FileValidator(), self)
+        if save:
+            self.wtext = ValidatedLineEdit(FileValidator(is_file=False, is_writable=True), self)
         else:
-            self.wtext = QLineEdit(self)
+            self.wtext = ValidatedLineEdit(FileValidator(), self)
         self.wtext.setMinimumWidth(300)
         hbox.addWidget(self.wtext)
         # Expose some methods
@@ -58,7 +75,7 @@ class Picker(QtWidgets.QWidget):  # TODO composition instead of inheritance
     def pick(self):
         dlg = QFileDialog(self, self.title, lastDir, self.filters)
         if self.save:
-            dlg.setDefaultSuffix(self._extension)
+            # dlg.setDefaultSuffix(self._extension)
             dlg.setAcceptMode(QFileDialog.AcceptSave)
         else:
             dlg.setAcceptMode(QFileDialog.AcceptOpen)
