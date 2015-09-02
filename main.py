@@ -9,7 +9,12 @@ import pysrt
 
 from PyQt5 import QtGui, QtCore, QtWidgets
 from PyQt5.QtCore import pyqtSlot
+from PyQt5.QtGui import QValidator
 from PyQt5.QtWidgets import QLabel, QLineEdit, QPushButton, QFileDialog, QMessageBox
+
+"""
+Uses ffmpeg - http://manpages.ubuntu.com/manpages/vivid/en/man1/ffmpeg.1.html
+"""
 
 __author__ = 'Edward Oubrayrie'
 
@@ -33,20 +38,37 @@ def duration_str(h_m_s_start: [int, int, int], h_m_s_stop: [int, int, int]):
     return timedelta_str(duration(dt.time(*h_m_s_start), dt.time(*h_m_s_stop)))
 
 
-class Picker(QtWidgets.QWidget):  # TOdO composition instead of inheritance
+class FileValidator(QValidator):
+    def __init__(self, *args):
+        super().__init__(*args)
 
-    def __init__(self, title, label='Select', save=False, filters=None):
+    def validate(self, s, pos):
+        if os.path.isfile(s):
+            return QValidator.Acceptable, s, pos
+        return QValidator.Intermediate, s, pos
+
+    def fixup(self, s):
+        pass
+
+
+class Picker(QtWidgets.QWidget):  # TODO composition instead of inheritance
+
+    def __init__(self, title, label='Select', exists=True, save=False, filters=None):
         super(Picker, self).__init__()
         self.save = save
         self.title = title
         self.filters = filters
 
         hbox = QtWidgets.QHBoxLayout()
-        self.wtext = QLineEdit(self)
+        if exists:
+            self.wtext = ValidatedLineEdit(FileValidator(), self)
+        else:
+            self.wtext = QLineEdit(self)
         self.wtext.setMinimumWidth(300)
         hbox.addWidget(self.wtext)
         # Expose some methods
         self.textChanged = self.wtext.textChanged
+        self.hasAcceptableInput = self.wtext.hasAcceptableInput
         self.set_text = self.wtext.setText
 
         # self.icon = QtWidgets.QIcon.fromTheme("places/user-folders")
@@ -76,14 +98,12 @@ class Picker(QtWidgets.QWidget):  # TOdO composition instead of inheritance
         return self.wtext.text()
 
 
-class MinuteSecond(QLineEdit):
+class ValidatedLineEdit(QLineEdit):
     """ http://snorf.net/blog/2014/08/09/using-qvalidator-in-pyqt4-to-validate-user-input/ """
 
-    def __init__(self, *args, **kw):
-        super(MinuteSecond, self).__init__(*args)
+    def __init__(self, validator, *args):
+        super().__init__(*args)
 
-        regexp = QtCore.QRegExp('^(([0-9]?[0-9]:?)?[0-5][0-9]:?)?[0-5][0-9]$')
-        validator = QtGui.QRegExpValidator(regexp)
         self.setValidator(validator)
         self.textChanged.connect(self.check_state)
         self.textChanged.emit(self.text())  # check initial text
@@ -100,6 +120,18 @@ class MinuteSecond(QLineEdit):
         else:
             color = '#f6989d'  # red
         sender.setStyleSheet('QLineEdit { background-color: %s }' % color)
+
+
+class MinuteSecond(ValidatedLineEdit):
+
+    def __init__(self, *args):
+        regexp = QtCore.QRegExp('^(([0-9]?[0-9]:?)?[0-5][0-9]:?)?[0-5][0-9]$')
+        validator = QtGui.QRegExpValidator(regexp)
+        super().__init__(validator, *args)
+
+        self.setValidator(validator)
+        self.textChanged.connect(self.check_state)
+        self.textChanged.emit(self.text())  # check initial text
 
     def get_time(self):
         t = self.text()
@@ -119,6 +151,25 @@ class MinuteSecond(QLineEdit):
         return h, m, s
 
 
+class BiggerMessageBox(QMessageBox):
+
+    # This is a much better way to extend __init__
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setSizeGripEnabled(True)  # ... but still not resizable
+        self.resize(self.sizeHint())
+
+    def resizeEvent(self, event):
+        result = super().resizeEvent(event)
+
+        details_box = self.findChild(QtWidgets.QTextEdit)
+        if details_box is not None:
+            details_box.setFixedSize(details_box.sizeHint())  # not good
+            details_box.setFixedSize(1000, 700)
+
+        return result
+
+
 class Main(QtWidgets.QWidget):
     def __init__(self):
         super(Main, self).__init__()
@@ -126,17 +177,24 @@ class Main(QtWidgets.QWidget):
         # File Picker
         self.video_pick = Picker('Open video', filters='Videos (*.mp4 *.mpg *.avi);;All files (*.*)')
         self.subtitle_pick = Picker('Open subtitle', filters='SubRip Subtitles (*.srt);;All files (*.*)')
-        self.save_pick = Picker('Save as', save=True)
+        self.save_pick = Picker('Save as', exists=False, save=True)
 
         # Times
         self.start = MinuteSecond(self)
         self.stop = MinuteSecond(self)
 
-        self.initUI()
+        icon_ok = self.style().standardIcon(QtWidgets.QStyle.SP_DialogOkButton)
+        self.ok_btn = QPushButton(icon_ok, 'Do it !', self)
 
-    def initUI(self):
+        self.init()
+
+    def init(self):
+
+        # events
 
         self.video_pick.textChanged.connect(self.video_changed)
+        for w in (self.video_pick, self.subtitle_pick, self.start, self.stop, self.save_pick):
+            w.textChanged.connect(self.doit_controller)
 
         # times
 
@@ -147,14 +205,15 @@ class Main(QtWidgets.QWidget):
 
         # Buttons
 
-        ok_btn = QPushButton('Do it !')
-        ok_btn.clicked.connect(self.do_it)
-        quit_btn = QPushButton('Quit')
+        self.ok_btn.setEnabled(False)
+        self.ok_btn.clicked.connect(self.do_it)
+        icon_quit = self.style().standardIcon(QtWidgets.QStyle.SP_DialogCancelButton)
+        quit_btn = QPushButton(icon_quit, 'Quit', self)
         quit_btn.clicked.connect(exit)
 
         hbox = QtWidgets.QHBoxLayout()
         hbox.addStretch(1)
-        hbox.addWidget(ok_btn)
+        hbox.addWidget(self.ok_btn)
         hbox.addWidget(quit_btn)
 
         # Stitch it
@@ -177,7 +236,14 @@ class Main(QtWidgets.QWidget):
         self.setLayout(grid)
 
     def video_changed(self, *args, **kw):
-        self.subtitle_pick.set_text(str(Path(self.video_pick.get_text()).with_suffix('.srt')))
+        p = self.video_pick.get_text()
+        if p:
+            self.subtitle_pick.set_text(str(Path(p).with_suffix('.srt')))
+
+    def doit_controller(self, *args, **kw):
+        ok = lambda w: w.hasAcceptableInput()
+        self.ok_btn.setEnabled((ok(self.video_pick) or ok(self.subtitle_pick))
+                               and ok(self.start) and ok(self.stop) and ok(self.save_pick))
 
     def do_it(self):
         vid_in = self.video_pick.get_text()
@@ -187,25 +253,19 @@ class Main(QtWidgets.QWidget):
 
         # input validation:
         if os.path.isfile(vid_out):
-            # icon = self.style().standardIcon(QtWidgets.QStyle.SP_MessageBoxWarning)
             # QMessageBox(icon, '{} already exists', 'Do you want to replace it ?',
-            #             buttons=QMessageBox.Yes, parent=self)  # TODO Ask instead
+            #             buttons=QMessageBox.Yes, parent=self)
 
-            # static QMessageBox::StandardButton warning(QWidget *parent, const QString &title, const QString &text,
-            #  QFlags<QMessageBox::StandardButton> buttons = QMessageBox::Ok,
-            #  QMessageBox::StandardButton defaultButton = QMessageBox::NoButton) /ReleaseGIL/;
-
-            ret = QMessageBox.warning(self, 'File exists',
-                                      '{} already exists\n\nDo you want to replace it ?'.format(vid_out),
-                                      defaultButton=QMessageBox.Cancel)
+            msg = '{} already exists\n\nDo you want to replace it ?'.format(vid_out)
+            ret = QMessageBox.warning(self, 'File exists', msg, defaultButton=QMessageBox.Cancel)
             if ret == QMessageBox.Cancel:
                 return
             try:
                 os.remove(vid_out)
             except OSError as e:
-                QMessageBox.critical(self, 'Wrong file',
-                                     'Cannot write {}, system returned {}.\n\n'
-                                     'Change output file name and retry,'.format(vid_out, str(e)))
+                msg = 'Cannot write {}, system returned {}.\n\n' \
+                      'Change output file name and retry,'.format(vid_out, str(e))
+                QMessageBox.critical(self, 'Wrong file', msg)
                 return
 
         ffmpeg = shutil.which('ffmpeg') or shutil.which('avconv')
@@ -223,8 +283,10 @@ class Main(QtWidgets.QWidget):
         stdout, stderr = p.communicate()
         ret = p.poll()
         if ret != 0:
-            err_dialog = QMessageBox.critical(self, 'Error during video cut',
-                                              "Error {} occured: \n\n{}\n\n{}\n\n{}".format(ret, str(stdout), '*'*99, str(stderr)))
+            msg = "Error {:d} occured. Check video file or see details.".format(ret)
+            dmsg = "\n\n{}\n\n{}\n\n{}".format(stdout.decode(), '_'*30, stderr.decode())
+            err_dialog = BiggerMessageBox(QMessageBox.Critical, 'Error during video cut', msg, parent=self)
+            err_dialog.setDetailedText(dmsg)
             err_dialog.exec()
         else:
             self.cut_subtitle()
