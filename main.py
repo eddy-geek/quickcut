@@ -112,7 +112,7 @@ class Main(QtWidgets.QWidget):
         vid_in = self.video_pick.get_text()
         vid_out = self.save_pick.get_text() + os.path.splitext(vid_in)[1]
         ss = self.start.get_time()
-        d = duration_str(self.start.get_h_m_s(), self.stop.get_h_m_s())
+        to = self.stop.get_time()
 
         # input validation:
         if os.path.isfile(vid_out):
@@ -133,11 +133,24 @@ class Main(QtWidgets.QWidget):
 
         video_ret = 0
         if os.path.isfile(vid_in):
-            ffmpeg = shutil.which('ffmpeg') or shutil.which('avconv')
+            ffmpeg = shutil.which('ffmpeg')
+            avconv = shutil.which('avconv')
+            exe = ffmpeg or avconv
+            if not exe:
+                msg = 'Install ffmpeg or avconv'
+                QMessageBox.critical(self, 'Missing dependency', msg)
+                return
+
+            if exe == avconv:  # end_as_duration:
+                d = duration_str(self.start.get_h_m_s(), self.stop.get_h_m_s())
+                stop = ['-t', d]
+            else:
+                stop = ['-to', to]
+
             command = [ffmpeg, '-nostdin', '-noaccurate_seek',
-                       '-ss', ss,
-                       '-t', d,
                        '-i', vid_in,
+                       '-ss', ss,
+                       stop[0], stop[1], #'-t', d,
                        '-vcodec', 'copy',
                        '-acodec', 'copy',
                        vid_out]
@@ -161,7 +174,9 @@ class Main(QtWidgets.QWidget):
                 f = vid_out
             elif sbt_out and os.path.isfile(sbt_out):
                 f = sbt_out
-            else:
+            else:  # This should not happen as button is greyed out
+                msg = ''
+                QMessageBox.warning(self, 'no file was generated', msg, defaultButton=QMessageBox.NoButton)
                 return  # TODO Warning
             if opn:
                 subprocess.Popen([opn, f])
