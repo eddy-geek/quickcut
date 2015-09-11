@@ -9,13 +9,44 @@ import pysrt
 from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QLabel, QPushButton, QMessageBox
 
-from widgets import Picker, MinuteSecondEdit, BiggerMessageBox
+from quickcut.widgets import Picker, MinuteSecondEdit, BiggerMessageBox
 
 """
 Uses ffmpeg - http://manpages.ubuntu.com/manpages/vivid/en/man1/ffmpeg.1.html
 """
 
 __author__ = 'Edward Oubrayrie'
+__version__ = '0.1'
+
+
+def packagekit_install(pack='ffmpeg'):
+    """
+    Equivalent of:
+     qdbus org.freedesktop.PackageKit /org/freedesktop/PackageKit
+           org.freedesktop.PackageKit.Modify.InstallPackageNames
+           0 ffmpeg  "show-confirm-search,hide-finished"
+    Or:
+     qdbus org.freedesktop.PackageKit /org/freedesktop/PackageKit
+           org.freedesktop.PackageKit.Query.IsInstalled 0 ffmpeg
+    See also (dbus) http://www.freedesktop.org/software/PackageKit/pk-faq.html#session-methods
+    Doc: http://blog.fpmurphy.com/2013/11/packagekit-d-bus-abstraction-layer.html
+    """
+    from PyQt5.QtDBus import QDBusConnection
+    from PyQt5.QtDBus import QDBusInterface
+
+    bus = QDBusConnection.sessionBus()
+    service_name = 'org.freedesktop.PackageKit'
+    service_path = '/org/freedesktop/PackageKit'
+
+    interface = 'org.freedesktop.PackageKit.Query.IsInstalled'
+    install = QDBusInterface(service_name, service_path, interface, bus)
+    reply = install.call(0, pack, 'show-confirm-search,hide-finished')
+    print(reply.arguments())
+
+    interface = 'org.freedesktop.PackageKit.Modify.InstallPackageNames'
+    install = QDBusInterface(service_name, service_path, interface, bus)
+    reply = install.call(0, pack, 'show-confirm-search,hide-finished')
+    print(reply.arguments())
 
 
 def duration(start: dt.time, stop: dt.time) -> dt.timedelta:
