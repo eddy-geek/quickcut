@@ -31,9 +31,9 @@ class FileValidator(QValidator):
             return QValidator.Intermediate, s, pos
 
         if self.is_writable and not (
-                (not os.path.isfile(s) or os.access(s, os.W_OK))
-                and os.access(os.path.dirname(s), os.W_OK)
-                and not os.path.isdir(s)):
+                (not os.path.isfile(s) or os.access(s, os.W_OK)) and
+                os.access(os.path.dirname(s), os.W_OK) and
+                not os.path.isdir(s)):
             return QValidator.Intermediate, s, pos
 
         return QValidator.Acceptable, s, pos
@@ -44,17 +44,21 @@ class FileValidator(QValidator):
 
 class Picker(QtWidgets.QWidget):  # TODO composition instead of inheritance
 
-    def __init__(self, title, label='Select', exists=True, save=False, filters=None):
+    def __init__(self, title, label='Select', check_exists=True, check_writable=False, filters=None):
+        """
+        :param title: tile of the actual picker window
+        :param label: button text
+        :param check_exists: if true, file must exist (e.g. 'Open' dialog)
+        :param check_writable: if true, location must be check_writable (e.g. 'Save' dialog)
+        :param filters: files to display (in Qt's own syntax)
+        """
         super(Picker, self).__init__()
-        self.save = save
+        self.save = check_writable
         self.title = title
         self.filters = filters
 
         hbox = QtWidgets.QHBoxLayout()
-        if save:
-            self.wtext = ValidatedLineEdit(FileValidator(is_file=False, is_writable=True), self)
-        else:
-            self.wtext = ValidatedLineEdit(FileValidator(), self)
+        self.wtext = ValidatedLineEdit(FileValidator(is_file=check_exists, is_writable=check_writable), self)
         self.wtext.setMinimumWidth(300)
         hbox.addWidget(self.wtext)
         # Expose some methods

@@ -2,11 +2,12 @@ import os
 import subprocess
 import sys
 import shutil
+import pkg_resources
 import datetime as dt
 from pathlib import Path
 
 import pysrt
-from PyQt5 import QtWidgets
+from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5.QtWidgets import QLabel, QPushButton, QMessageBox
 
 from quickcut.widgets import Picker, MinuteSecondEdit, BiggerMessageBox
@@ -16,7 +17,11 @@ Uses ffmpeg - http://manpages.ubuntu.com/manpages/vivid/en/man1/ffmpeg.1.html
 """
 
 __author__ = 'Edward Oubrayrie'
-__version__ = '0.1'
+
+package = Path(__file__).parent.name
+__version__ = pkg_resources.get_distribution(package).version
+icon_path = pkg_resources.resource_filename('quickcut', 'quickcut.png')
+print(icon_path)
 
 
 def packagekit_install(pack='ffmpeg'):
@@ -100,7 +105,7 @@ def video_cut(vid_in, vid_out, ss, to, d, parent):
         command = [ffmpeg, '-nostdin', '-noaccurate_seek',
                    '-i', vid_in,
                    '-ss', ss,
-                   stop[0], stop[1], #'-t', d,
+                   stop[0], stop[1],
                    '-vcodec', 'copy',
                    '-acodec', 'copy',
                    vid_out]
@@ -127,7 +132,7 @@ class Main(QtWidgets.QWidget):
         # File Picker
         self.video_pick = Picker('Open video', filters='Videos (*.mp4 *.mpg *.avi);;All files (*.*)')
         self.subtitle_pick = Picker('Open subtitle', filters='SubRip Subtitles (*.srt);;All files (*.*)')
-        self.save_pick = Picker('Save as', exists=False, save=True)
+        self.save_pick = Picker('Save as', check_exists=False, check_writable=True)
 
         # Times
         self.start = MinuteSecondEdit(self)
@@ -185,11 +190,15 @@ class Main(QtWidgets.QWidget):
 
         self.setLayout(grid)
 
+    # noinspection PyUnusedLocal
+    @QtCore.pyqtSlot()
     def video_changed(self, *args, **kw):
         p = self.video_pick.get_text()
         if p:
             self.subtitle_pick.set_text(str(Path(p).with_suffix('.srt')))
 
+    # noinspection PyUnusedLocal
+    @QtCore.pyqtSlot()
     def doit_controller(self, *args, **kw):
         ok = lambda w: w.hasAcceptableInput()
         self.ok_btn.setEnabled((ok(self.video_pick) or ok(self.subtitle_pick)) and
@@ -214,7 +223,7 @@ class Main(QtWidgets.QWidget):
             else:  # This should not happen as button is greyed out
                 msg = ''
                 QMessageBox.warning(self, 'no file was generated', msg, defaultButton=QMessageBox.NoButton)
-                return  # TODO Warning
+                return
             if opn:
                 subprocess.Popen([opn, f])
 
@@ -237,6 +246,15 @@ class Main(QtWidgets.QWidget):
 
 def main():
     app = QtWidgets.QApplication(sys.argv)
+
+    # for path in QtGui.QIcon.themeSearchPaths():
+    #     print("%s/%s" % (path, QtGui.QIcon.themeName()))
+
+    icon = QtGui.QIcon()
+    # icon.addPixmap(QtGui.QPixmap(":/icons/hicolor/128x128/apps/quickcut.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+    icon.addPixmap(QtGui.QPixmap(icon_path), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+
+    app.setWindowIcon(icon)
 
     w = Main()
 

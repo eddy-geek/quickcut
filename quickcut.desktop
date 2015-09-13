@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=QuickCut hc
+Version=0.0.1
+Exec=/usr/local/bin/quickcut
+Icon=/usr/local/share/icons/hicolor/128x128/apps/quickcut.png
+GenericName=Video & Subtitle Cut
+Type=Application
+Terminal=false
+StartupNotify=true
+Categories=Utility;Application;Multimedia;QT;KDE;GNOME

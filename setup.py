@@ -16,10 +16,10 @@ REQUIRES = ['pysrt']
 
 try:
     # noinspection PyUnresolvedReferences
-    import PyQt
+    import PyQt5
 except ImportError:
     if name == "nt":
-        # We can use this special repo with binaries
+        # On windows we can use this special repo with binaries:
         REQUIRES.append('python-qt5')
     else:
         print('''Warning: no PyQt5 is available on pypi for your platform.
@@ -33,7 +33,7 @@ setup(
     url='http://github.com/eddy-geek/quickcut/',
     license='GPL',
     author='Edward Oubrayrie',
-    description='Video/Subtitle Cut on given time-range. ffmpeg/pysrt based.',
+    description='Video & Subtitle Cut on given time-range. ffmpeg/pysrt based.',
     keywords='video, subtitle, editor, avi, mp4, srt, ffmpeg, pysrt',
     packages=find_packages(exclude=['contrib', 'docs', 'tests*']),
     install_requires=REQUIRES,
@@ -43,19 +43,20 @@ setup(
             'quickcut=quickcut:main',
         ],
     },
-    # scripts,
+    desktop_entries={
+        'quickcut': {
+            'Name': 'QuickCut',
+            'GenericName': 'Video & Subtitle Cut',
+            'Categories': 'Multimedia',
+        },
+    },
     # If there are data files included in your packages that need to be installed
     # package_data={
     #     'sample': ['package_data.dat'],
     # },
-    # Although 'package_data' is the preferred approach, in some case you may
-    # need to place data files outside of your packages. See:
-    # http://docs.python.org/3.4/distutils/setupscript.html#installing-additional-files # noqa
-    data_files=[  # Paths are relative to '<sys.prefix>/my_data'
-        # ('$HOME/.local/share/', ['quickcut.desktop'])
-        # ('share/icons/hicolor/16x16/apps', ['icons/16x16/myapp.png']),
-        # ('share/icons/hicolor/48x48/apps', ['icons/48x48/myapp.png']),
-        # ('share/icons/hicolor/scalable/apps', ['icons/scalable/myapp.svg']),
+    data_files=[  # Paths are relative to '<sys.prefix>'
+        ('share/applications', ['quickcut.desktop']),
+        ('share/icons/hicolor/128x128/apps', ['quickcut/quickcut.png']),
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
