@@ -64,6 +64,62 @@ def duration_str(h_m_s_start: [int, int, int], h_m_s_stop: [int, int, int]):
     return timedelta_str(duration(dt.time(*h_m_s_start), dt.time(*h_m_s_stop)))
 
 
+def video_cut(vid_in, vid_out, ss, to, d, parent):
+    # input validation:
+    if os.path.isfile(vid_out):
+        # QMessageBox(icon, '{} already exists', 'Do you want to replace it ?',
+        #             buttons=QMessageBox.Yes, parent=parent)
+
+        msg = '{} already exists\n\nDo you want to replace it ?'.format(vid_out)
+        video_ret = QMessageBox.warning(parent, 'File exists', msg, defaultButton=QMessageBox.Cancel)
+        if video_ret == QMessageBox.Cancel:
+            return
+        try:
+            os.remove(vid_out)
+        except OSError as e:
+            msg = 'Cannot write {}, system returned {}.\n\n' \
+                  'Change output file name and retry,'.format(vid_out, str(e))
+            QMessageBox.critical(parent, 'Wrong file', msg)
+            return None
+
+    video_ret = 0
+    if os.path.isfile(vid_in):
+        ffmpeg = shutil.which('ffmpeg')
+        avconv = shutil.which('avconv')
+        exe = ffmpeg or avconv
+        if not exe:
+            msg = 'Install ffmpeg or avconv'
+            QMessageBox.critical(parent, 'Missing dependency', msg)
+            return
+
+        if exe == avconv:  # end_as_duration:
+            stop = ['-t', d]
+        else:
+            stop = ['-to', to]
+
+        command = [ffmpeg, '-nostdin', '-noaccurate_seek',
+                   '-i', vid_in,
+                   '-ss', ss,
+                   stop[0], stop[1], #'-t', d,
+                   '-vcodec', 'copy',
+                   '-acodec', 'copy',
+                   vid_out]
+        # "ffmpeg -i input.avi -vcodec copy -acodec copy -ss 00:00:00 -t 00:05:00 output1.avi"
+        # 'avconv -i "/media/eoubrayrie/STORENGO/v.mp4" -vcodec copy -acodec copy -ss 00:00:00 -t 00:05:16 output1.avi'
+        print(command)  # FIXME output is seemingly random start/duration....
+        p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  #, stderr=subprocess.STDOUT)
+        stdout, stderr = p.communicate()
+        video_ret = p.poll()
+        if video_ret != 0:
+            msg = "Error {:d} occured. Check video file or see details.".format(video_ret)
+            dmsg = "\n\n{}\n\n{}\n\n{}".format(stdout.decode(), '_' * 30, stderr.decode())
+            err_dialog = BiggerMessageBox(QMessageBox.Critical, 'Error during video cut', msg, parent=parent)
+            err_dialog.setDetailedText(dmsg)
+            err_dialog.exec()
+
+    return video_ret
+
+
 class Main(QtWidgets.QWidget):
     def __init__(self):
         super(Main, self).__init__()
@@ -136,67 +192,17 @@ class Main(QtWidgets.QWidget):
 
     def doit_controller(self, *args, **kw):
         ok = lambda w: w.hasAcceptableInput()
-        self.ok_btn.setEnabled((ok(self.video_pick) or ok(self.subtitle_pick))
-                               and ok(self.start) and ok(self.stop) and ok(self.save_pick))
+        self.ok_btn.setEnabled((ok(self.video_pick) or ok(self.subtitle_pick)) and
+                               ok(self.start) and ok(self.stop) and ok(self.save_pick))
 
     def do_it(self):
         vid_in = self.video_pick.get_text()
         vid_out = self.save_pick.get_text() + os.path.splitext(vid_in)[1]
         ss = self.start.get_time()
         to = self.stop.get_time()
+        d = duration_str(self.start.get_h_m_s(), self.stop.get_h_m_s())
 
-        # input validation:
-        if os.path.isfile(vid_out):
-            # QMessageBox(icon, '{} already exists', 'Do you want to replace it ?',
-            #             buttons=QMessageBox.Yes, parent=self)
-
-            msg = '{} already exists\n\nDo you want to replace it ?'.format(vid_out)
-            video_ret = QMessageBox.warning(self, 'File exists', msg, defaultButton=QMessageBox.Cancel)
-            if video_ret == QMessageBox.Cancel:
-                return
-            try:
-                os.remove(vid_out)
-            except OSError as e:
-                msg = 'Cannot write {}, system returned {}.\n\n' \
-                      'Change output file name and retry,'.format(vid_out, str(e))
-                QMessageBox.critical(self, 'Wrong file', msg)
-                return
-
-        video_ret = 0
-        if os.path.isfile(vid_in):
-            ffmpeg = shutil.which('ffmpeg')
-            avconv = shutil.which('avconv')
-            exe = ffmpeg or avconv
-            if not exe:
-                msg = 'Install ffmpeg or avconv'
-                QMessageBox.critical(self, 'Missing dependency', msg)
-                return
-
-            if exe == avconv:  # end_as_duration:
-                d = duration_str(self.start.get_h_m_s(), self.stop.get_h_m_s())
-                stop = ['-t', d]
-            else:
-                stop = ['-to', to]
-
-            command = [ffmpeg, '-nostdin', '-noaccurate_seek',
-                       '-i', vid_in,
-                       '-ss', ss,
-                       stop[0], stop[1], #'-t', d,
-                       '-vcodec', 'copy',
-                       '-acodec', 'copy',
-                       vid_out]
-            # "ffmpeg -i input.avi -vcodec copy -acodec copy -ss 00:00:00 -t 00:05:00 output1.avi"
-            # 'avconv -i "/media/eoubrayrie/STORENGO/v.mp4" -vcodec copy -acodec copy -ss 00:00:00 -t 00:05:16 output1.avi'
-            print(command)  # FIXME output is seemingly random start/duration....
-            p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  #, stderr=subprocess.STDOUT)
-            stdout, stderr = p.communicate()
-            video_ret = p.poll()
-            if video_ret != 0:
-                msg = "Error {:d} occured. Check video file or see details.".format(video_ret)
-                dmsg = "\n\n{}\n\n{}\n\n{}".format(stdout.decode(), '_'*30, stderr.decode())
-                err_dialog = BiggerMessageBox(QMessageBox.Critical, 'Error during video cut', msg, parent=self)
-                err_dialog.setDetailedText(dmsg)
-                err_dialog.exec()
+        video_ret = video_cut(vid_in, vid_out, ss, to, d, self)
 
         if video_ret == 0:
             sbt_out = self.cut_subtitle()
@@ -211,7 +217,6 @@ class Main(QtWidgets.QWidget):
                 return  # TODO Warning
             if opn:
                 subprocess.Popen([opn, f])
-
 
     def cut_subtitle(self):
         sbt_in = self.subtitle_pick.get_text()
@@ -230,7 +235,7 @@ class Main(QtWidgets.QWidget):
             return sbt_out
 
 
-if __name__ == '__main__':
+def main():
     app = QtWidgets.QApplication(sys.argv)
 
     w = Main()
@@ -249,3 +254,6 @@ if __name__ == '__main__':
 
     sys.exit(app.exec())
 
+
+if __name__ == '__main__':
+    main()
