@@ -4,7 +4,7 @@ from PyQt5.QtCore import pyqtSlot
 from PyQt5.QtGui import QValidator
 from PyQt5.QtWidgets import QLineEdit, QPushButton, QFileDialog, QMessageBox
 
-__author__ = 'eoubrayrie'
+__author__ = 'Edward Oubrayrie'
 
 
 lastDir = os.path.expandvars('$HOME')

@@ -32,6 +32,12 @@ REQUIRES = ['pysrt']
 
 try:
     # noinspection PyUnresolvedReferences
+    import pathlib
+except ImportError:
+    REQUIRES.append('pathlib')
+
+try:
+    # noinspection PyUnresolvedReferences,PyPackageRequirements
     import PyQt5
 except ImportError:
     if os.name == "nt":
@@ -49,6 +55,7 @@ s = setup(
     url='http://github.com/eddy-geek/quickcut/',
     license='GPL',
     author='Edward Oubrayrie',
+    author_email='edoubrayrie@gmail.com',
     description='Video & subtitle cut on given time-range. ffmpeg/pysrt based.',
     long_description=long_description,
     keywords='video, subtitle, editor, avi, mp4, srt, ffmpeg, pysrt',
@@ -80,7 +87,7 @@ s = setup(
         'Intended Audience :: Education',
         'Intended Audience :: End Users/Desktop',
         'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',
-        'Operating System :: POSIX'
+        'Operating System :: POSIX',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',

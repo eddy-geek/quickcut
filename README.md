@@ -34,7 +34,7 @@ Video &amp; subtitle cut
 
 * Global (/usr/local)
 
-        sudo pip3 install quickcut  # Hopefully soon
+        sudo pip3 install quickcut
 
 * Local
 

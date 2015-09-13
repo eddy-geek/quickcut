@@ -17,11 +17,9 @@ Uses ffmpeg - http://manpages.ubuntu.com/manpages/vivid/en/man1/ffmpeg.1.html
 """
 
 __author__ = 'Edward Oubrayrie'
+__version__ = pkg_resources.get_distribution(Path(__file__).parent.name).version
 
-package = Path(__file__).parent.name
-__version__ = pkg_resources.get_distribution(package).version
-icon_path = pkg_resources.resource_filename('quickcut', 'quickcut.png')
-print(icon_path)
+ICON = pkg_resources.resource_filename('quickcut', 'quickcut.png')
 
 
 def packagekit_install(pack='ffmpeg'):
@@ -252,7 +250,7 @@ def main():
 
     icon = QtGui.QIcon()
     # icon.addPixmap(QtGui.QPixmap(":/icons/hicolor/128x128/apps/quickcut.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-    icon.addPixmap(QtGui.QPixmap(icon_path), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+    icon.addPixmap(QtGui.QPixmap(ICON), QtGui.QIcon.Normal, QtGui.QIcon.Off)
 
     app.setWindowIcon(icon)
 
