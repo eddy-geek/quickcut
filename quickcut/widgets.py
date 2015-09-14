@@ -44,7 +44,7 @@ class FileValidator(QValidator):
 
 class Picker(QtWidgets.QWidget):  # TODO composition instead of inheritance
 
-    def __init__(self, title, label='Select', check_exists=True, check_writable=False, filters=None):
+    def __init__(self, title, label='Select', check_exists=True, check_writable=False, filters=None, width=500):
         """
         :param title: tile of the actual picker window
         :param label: button text
@@ -59,7 +59,7 @@ class Picker(QtWidgets.QWidget):  # TODO composition instead of inheritance
 
         hbox = QtWidgets.QHBoxLayout()
         self.wtext = ValidatedLineEdit(FileValidator(is_file=check_exists, is_writable=check_writable), self)
-        self.wtext.setMinimumWidth(300)
+        self.wtext.setMinimumWidth(width)
         hbox.addWidget(self.wtext)
         # Expose some methods
         self.textChanged = self.wtext.textChanged

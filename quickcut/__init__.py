@@ -14,6 +14,8 @@ from quickcut.widgets import Picker, MinuteSecondEdit, BiggerMessageBox
 
 """
 Uses ffmpeg - http://manpages.ubuntu.com/manpages/vivid/en/man1/ffmpeg.1.html
+              http://ffmpeg.org/ffmpeg.html#Stream-selection
+See also PyAV: https://github.com/mikeboers/PyAV
 """
 
 __author__ = 'Edward Oubrayrie'
@@ -106,10 +108,11 @@ def video_cut(vid_in, vid_out, ss, to, d, parent):
                    stop[0], stop[1],
                    '-vcodec', 'copy',
                    '-acodec', 'copy',
+                   '-map', '0',  # all streams
                    vid_out]
         # "ffmpeg -i input.avi -vcodec copy -acodec copy -ss 00:00:00 -t 00:05:00 output1.avi"
         # 'avconv -i "/media/eoubrayrie/STORENGO/v.mp4" -vcodec copy -acodec copy -ss 00:00:00 -t 00:05:16 output1.avi'
-        print(command)  # FIXME output is seemingly random start/duration....
+        print(command)
         p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  #, stderr=subprocess.STDOUT)
         stdout, stderr = p.communicate()
         video_ret = p.poll()
