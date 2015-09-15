@@ -11,9 +11,7 @@
 * use VLC as alternative split backend:  
        `vlc -Idummy $in_filename --start-time $start --stop-time $stop --sout=#file{dst=$out_filename} vlc://quit`
 
-* 'alternate audio' option -> use `'-map 0:v -map 0:a:1'`  or `'-map 0 -map -0:a:0'`
-
-* use `ffprobe -print_format json -show_format -show_streams $file` to display information  
+* use `ffprobe -print_format json -show_format -show_streams $file` to display information
        print empty `{}` json in case of error
 
 * set tab order right by reordering constructor or using http://doc.qt.io/qt-5.5/qwidget.html#setTabOrder
