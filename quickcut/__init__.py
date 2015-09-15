@@ -24,7 +24,7 @@ __author__ = 'Edward Oubrayrie'
 try:
     __version__ = pkg_resources.get_distribution(Path(__file__).parent.name).version
 except pkg_resources.DistributionNotFound:
-    __version__ = 'DEV'
+    __version__ = '0.DEV'
 
 ICON = pkg_resources.resource_filename('quickcut', 'quickcut.png')
 

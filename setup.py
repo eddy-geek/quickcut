@@ -1,7 +1,7 @@
 # from distutils.dist import Distribution
+import sys
 import os
 from setuptools import setup, find_packages
-import sys
 
 """Quickcut's setuptools based setup module.
 
@@ -19,7 +19,7 @@ __author__ = 'eoubrayrie'
 # print(distutils.command.install.install.user_options)
 
 if 'install' in sys.argv and '--user' in sys.argv:
-    prefix = os.path.join(os.getenv('HOME')) / '.local'
+    prefix = os.path.join(os.getenv('HOME'), '.local')
 else:
     prefix = '/usr/local'
 

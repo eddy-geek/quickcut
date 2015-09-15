@@ -1,7 +1,7 @@
 # QuickCut
 Video &amp; subtitle cut
 
-[![(travis)](https://secure.travis-ci.org/byroot/pysrt.png?branch=master)](http://travis-ci.org/byroot/pysrt)
+[![(ci)](https://secure.travis-ci.org/eddy-geek/quickcut.png?branch=master)](http://travis-ci.org/eddy-geek/quickcut)
 
 ## Features
 
