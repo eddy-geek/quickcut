@@ -1,3 +1,4 @@
+import logging
 import os
 import subprocess
 import sys
@@ -9,6 +10,7 @@ from pathlib import Path
 import pysrt
 from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5.QtWidgets import QLabel, QPushButton, QMessageBox
+from quickcut.ordered_set import OrderedSet
 
 from quickcut.widgets import Picker, MinuteSecondEdit, BiggerMessageBox
 
@@ -19,9 +21,14 @@ See also PyAV: https://github.com/mikeboers/PyAV
 """
 
 __author__ = 'Edward Oubrayrie'
-__version__ = pkg_resources.get_distribution(Path(__file__).parent.name).version
+try:
+    __version__ = pkg_resources.get_distribution(Path(__file__).parent.name).version
+except pkg_resources.DistributionNotFound:
+    __version__ = 'DEV'
 
 ICON = pkg_resources.resource_filename('quickcut', 'quickcut.png')
+
+logger = logging.getLogger(__name__)
 
 
 def packagekit_install(pack='ffmpeg'):
@@ -69,7 +76,7 @@ def duration_str(h_m_s_start: [int, int, int], h_m_s_stop: [int, int, int]):
     return timedelta_str(duration(dt.time(*h_m_s_start), dt.time(*h_m_s_stop)))
 
 
-def video_cut(vid_in, vid_out, ss, to, d, parent):
+def video_cut(vid_in, vid_out, ss, to, d, alt_audio, parent):
     # input validation:
     if os.path.isfile(vid_out):
         # QMessageBox(icon, '{} already exists', 'Do you want to replace it ?',
@@ -109,10 +116,14 @@ def video_cut(vid_in, vid_out, ss, to, d, parent):
                    '-vcodec', 'copy',
                    '-acodec', 'copy',
                    '-map', '0',  # all streams
-                   vid_out]
+                   ]
+        if alt_audio:
+            command.extend(['-map', '-0:a:0'])  # remove main audio stream
+        command.append(vid_out)
         # "ffmpeg -i input.avi -vcodec copy -acodec copy -ss 00:00:00 -t 00:05:00 output1.avi"
         # 'avconv -i "/media/eoubrayrie/STORENGO/v.mp4" -vcodec copy -acodec copy -ss 00:00:00 -t 00:05:16 output1.avi'
-        print(command)
+        logger.info('%s', command)
+
         p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  #, stderr=subprocess.STDOUT)
         stdout, stderr = p.communicate()
         video_ret = p.poll()
@@ -124,6 +135,17 @@ def video_cut(vid_in, vid_out, ss, to, d, parent):
             err_dialog.exec()
 
     return video_ret
+
+
+def subtitle_cut(h1, m1, s1, h2, m2, s2, subs, sbt_out):
+    print('Decoded {} with {} items'.format(sbt_out, len(subs)))
+    part = subs.slice(starts_after={'hours': h1, 'minutes': m1, 'seconds': s1},
+                      ends_before={'hours': h2, 'minutes': m2, 'seconds': s2})
+    # d = - duration(dt.time(h1, m1, s1), dt.time(h2, m2, s2)).total_seconds()
+    print('Shifting {} sliced items'.format(len(part)))
+    part.shift(hours=-h1, minutes=-m1, seconds=-s1)
+    part.save(path=sbt_out)
+    print('Successfully written', sbt_out)
 
 
 class Main(QtWidgets.QWidget):
@@ -139,6 +161,7 @@ class Main(QtWidgets.QWidget):
         self.start = MinuteSecondEdit(self)
         self.stop = MinuteSecondEdit(self)
 
+        self.alt_audio = QtWidgets.QCheckBox('Alternate audio track', self)
         icon_ok = self.style().standardIcon(QtWidgets.QStyle.SP_DialogOkButton)
         self.ok_btn = QPushButton(icon_ok, 'Do it !', self)
 
@@ -168,6 +191,7 @@ class Main(QtWidgets.QWidget):
         quit_btn.clicked.connect(exit)
 
         hbox = QtWidgets.QHBoxLayout()
+        hbox.addWidget(self.alt_audio)
         hbox.addStretch(1)
         hbox.addWidget(self.ok_btn)
         hbox.addWidget(quit_btn)
@@ -211,8 +235,9 @@ class Main(QtWidgets.QWidget):
         ss = self.start.get_time()
         to = self.stop.get_time()
         d = duration_str(self.start.get_h_m_s(), self.stop.get_h_m_s())
+        alt_audio = self.alt_audio.isChecked()
 
-        video_ret = video_cut(vid_in, vid_out, ss, to, d, self)
+        video_ret = video_cut(vid_in, vid_out, ss, to, d, alt_audio, self)
 
         if video_ret == 0:
             sbt_out = self.cut_subtitle()
@@ -234,16 +259,27 @@ class Main(QtWidgets.QWidget):
             sbt_out = self.save_pick.get_text() + os.path.splitext(sbt_in)[1]
             h1, m1, s1 = self.start.get_h_m_s()
             h2, m2, s2 = self.stop.get_h_m_s()
-            subs = pysrt.open(sbt_in, error_handling=pysrt.ERROR_LOG)  # , encoding='iso-8859-1')
-            print('Decoded {} with {} items'.format(sbt_out, len(subs)))
-            part = subs.slice(starts_after={'hours': h1, 'minutes': m1, 'seconds': s1},
-                              ends_before={'hours': h2, 'minutes': m2, 'seconds': s2})
-            print('Sliced {} items'.format(len(part)))
-            part.shift(seconds=-duration(dt.time(h1, m1, s1), dt.time(h2, m2, s2)).total_seconds())
-            part.save(path=sbt_out)
-            print('Successfully written', sbt_out)
-            return sbt_out
+            import chardet
+            detected = chardet.detect(open(sbt_in, 'rb').read(1024*1024))
+            enc = detected['encoding']
+            cnf = detected['confidence']
+            e = None
+            encs = OrderedSet([enc, 'utf-8', 'latin1'])
+            for encoding in encs:
+                try:
+                    logger.info('Trying to open subtitle with encoding %s' % encoding)
+                    subs = pysrt.open(sbt_in, error_handling=pysrt.ERROR_LOG, encoding=encoding)
+                    subtitle_cut(h1, m1, s1, h2, m2, s2, subs, sbt_out)
+                    return
+                except Exception as ae:
+                    e = e or ae
+                    logger.warning('encoding  %s failed', encoding, exc_info=1)
+            msg = "Could not open {} with any of the following encodings:\n  {}\n\n" \
+                  "Confidence on {} was {}.\nFirst error was: {}"
+            msg = msg.format(os.path.basename(sbt_in), ', '.join(encs), enc, cnf, str(e))
+            QMessageBox.warning(self, 'Opening subtitle failed', msg, defaultButton=QMessageBox.NoButton)
 
+            return sbt_out
 
 def main():
     app = QtWidgets.QApplication(sys.argv)
@@ -275,4 +311,5 @@ def main():
 
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
     main()

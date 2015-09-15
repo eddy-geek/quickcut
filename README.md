@@ -7,7 +7,9 @@ Video &amp; subtitle cut
 * Supports ffmpeg and libav (avconv) backends for video
   * all common containers (avi, mp4, mkv, ...) and codecs
   * keeping the same codec
+  * 'alternate audio track' selection for multilingual movies e.g. mkv
 * Support pysrt for srt subtitles
+  * detect subtitle encoding
 * Full input validation
   * Times: HH:MM:SS or HHMMSS or MMSS etc.
 * Display backend errors if any.
