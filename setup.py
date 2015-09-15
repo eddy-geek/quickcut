@@ -1,6 +1,5 @@
 # from distutils.dist import Distribution
 import os
-from pathlib import Path
 from setuptools import setup, find_packages
 import sys
 
@@ -20,9 +19,9 @@ __author__ = 'eoubrayrie'
 # print(distutils.command.install.install.user_options)
 
 if 'install' in sys.argv and '--user' in sys.argv:
-    prefix = Path(os.getenv('HOME')) / '.local'
+    prefix = os.path.join(os.getenv('HOME')) / '.local'
 else:
-    prefix = Path('/usr/local')
+    prefix = '/usr/local'
 
 
 with open("README.md", "r") as fp:
@@ -72,7 +71,8 @@ s = setup(
             'Name': 'QuickCut',
             'GenericName': 'Video & Subtitle Cut',
             'Categories': 'Utility;Application;Multimedia;QT;KDE;GNOME',
-            'Icon': str(prefix / 'share/icons/hicolor/128x128/apps/quickcut.png')
+            'Icon': os.path.join(prefix, 'share/icons/hicolor/128x128/apps/quickcut.png'),
+            'Exec': os.path.join(prefix, 'bin/quickcut')  # override buggy-for-wheels behaviour
         },
     },
     package_data={

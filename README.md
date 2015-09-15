@@ -1,6 +1,8 @@
 # QuickCut
 Video &amp; subtitle cut
 
+[![(travis)](https://secure.travis-ci.org/byroot/pysrt.png?branch=master)](http://travis-ci.org/byroot/pysrt)
+
 ## Features
 
 * Split video and subtitle based on input time range.
