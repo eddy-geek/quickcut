@@ -6,6 +6,13 @@
       * pyqt part:  http://python.6.x6.nabble.com/Embedding-VLC-td1923916.html
       * pyvlc part: https://gist.github.com/smathot/1521059
 
+* smarter folder selection (remember last ; dropdown with recent locations?)
+
+* output folder alignes with input folder until manually modified
+
+* set tab order right by reordering constructor or using http://doc.qt.io/qt-5.5/qwidget.html#set
+
+
 ## Backend
 
 * use VLC as alternative split backend:  
@@ -13,8 +20,6 @@
 
 * use `ffprobe -print_format json -show_format -show_streams $file` to display information
        print empty `{}` json in case of error
-
-* set tab order right by reordering constructor or using http://doc.qt.io/qt-5.5/qwidget.html#setTabOrder
 
 ## Architecture
 
