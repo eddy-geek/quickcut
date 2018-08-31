@@ -57,8 +57,10 @@ s = setup(
     author_email='edoubrayrie@gmail.com',
     description='Video & subtitle cut on given time-range. ffmpeg/pysrt based.',
     long_description=long_description,
-    keywords='video, subtitle, editor, avi, mp4, srt, ffmpeg, pysrt',
+    keywords='video, subtitle, editor, avi, mp4, srt, ffmpeg, pysrt, pyqt',
     packages=find_packages(exclude=['contrib', 'docs', 'tests*']),
+    include_package_data=True,
+    python_requires='>=3.3',
     install_requires=REQUIRES,
     setup_requires=['install_freedesktop'],  # creates desktop files if installed with pip
     entry_points={
@@ -84,6 +86,7 @@ s = setup(
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
+        'Environment :: X11 Applications :: Qt',
         'Intended Audience :: Education',
         'Intended Audience :: End Users/Desktop',
         'License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)',
@@ -92,6 +95,8 @@ s = setup(
         'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
         'Topic :: Multimedia :: Video',
         'Topic :: Utilities',
     ],
@@ -99,5 +104,5 @@ s = setup(
 
 
 if 'install_data' in s.command_obj:
-    print('Installed to', s.command_obj['install_data'].install_dir)  # e.g. ~/.local
+    print('Installed to', s.command_obj['install_data'].install_dir)
     # icon path could be cutsomized here too
